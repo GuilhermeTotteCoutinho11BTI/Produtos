@@ -527,7 +527,36 @@
   </div>
 
   <script>
-    const API_URL = 'http://localhost:5000/api';
+    const API_URL = 'local'; // Simulação local
+
+    // Simulação de API com localStorage
+    function apiGetCamisetas() {
+      const data = localStorage.getItem('camisetas');
+      return data ? JSON.parse(data) : [];
+    }
+
+    function apiPostCamiseta(camiseta) {
+      const camisetas = apiGetCamisetas();
+      const newCamiseta = {
+        id: Date.now(),
+        ...camiseta,
+        data_criacao: new Date().toISOString()
+      };
+      camisetas.push(newCamiseta);
+      localStorage.setItem('camisetas', JSON.stringify(camisetas));
+      return newCamiseta;
+    }
+
+    function apiDeleteCamiseta(id) {
+      const camisetas = apiGetCamisetas();
+      const index = camisetas.findIndex(c => c.id == id);
+      if (index > -1) {
+        camisetas.splice(index, 1);
+        localStorage.setItem('camisetas', JSON.stringify(camisetas));
+        return true;
+      }
+      return false;
+    }
 
     function showPage(pageName, ev) {
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -540,8 +569,7 @@
     async function renderCamisetas() {
       const container = document.getElementById('camisetasContainer');
       try {
-        const response = await fetch(`${API_URL}/camisetas`);
-        const camisetas = await response.json();
+        const camisetas = apiGetCamisetas();
         
         if (!camisetas || camisetas.length === 0) {
           container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚽</div><h3>Nenhuma camiseta cadastrada</h3><p>Clique em "Cadastrar" para adicionar camisetas.</p></div>`;
@@ -586,33 +614,29 @@
 
       const body = { nome, descricao, preco, estoque };
       
-      fetch(`${API_URL}/camisetas`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          showMsg('Erro: ' + data.error, 'error');
-        } else {
-          showMsg('Camiseta salva com sucesso', 'success');
-          document.querySelector('.cadastro-form').reset();
-          setTimeout(() => showPage('home'), 1000);
-        }
-      })
-      .catch(err => showMsg('Erro ao salvar', 'error'));
+      try {
+        const data = apiPostCamiseta(body);
+        showMsg('Camiseta salva com sucesso', 'success');
+        document.querySelector('.cadastro-form').reset();
+        setTimeout(() => showPage('home'), 1000);
+      } catch (err) {
+        showMsg('Erro ao salvar', 'error');
+      }
     }
 
     function deletarCamiseta(id) {
       if (confirm('Remover esta camiseta?')) {
-        fetch(`${API_URL}/camisetas/${id}`, { method: 'DELETE' })
-          .then(r => r.json())
-          .then(data => {
+        try {
+          const success = apiDeleteCamiseta(id);
+          if (success) {
             alert('Produto deletado com sucesso!');
             renderCamisetas();
-          })
-          .catch(err => showMsg('Erro ao deletar', 'error'));
+          } else {
+            showMsg('Erro ao deletar', 'error');
+          }
+        } catch (err) {
+          showMsg('Erro ao deletar', 'error');
+        }
       }
     }
 
