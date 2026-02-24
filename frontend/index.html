@@ -609,6 +609,7 @@
         fetch(`${API_URL}/camisetas/${id}`, { method: 'DELETE' })
           .then(r => r.json())
           .then(data => {
+            alert('Produto deletado com sucesso!');
             renderCamisetas();
           })
           .catch(err => showMsg('Erro ao deletar', 'error'));
