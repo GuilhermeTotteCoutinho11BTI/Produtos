@@ -141,6 +141,13 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 18px;
+      min-height: 500px;
+    }
+
+    .camisetas-grid:has(.empty-state) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .camiseta-card {
@@ -376,25 +383,32 @@
     /* EMPTY STATE */
     .empty-state {
       text-align: center;
-      padding: 32px 20px;
+      padding: 40px;
       background: #F5F3F0;
       border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 500px;
     }
 
     .empty-state-icon {
-      font-size: 48px;
-      margin-bottom: 12px;
+      font-size: 80px;
+      margin-bottom: 24px;
     }
 
     .empty-state h3 {
-      font-size: 1.2rem;
+      font-size: 1.8rem;
       font-weight: 700;
       color: var(--text);
-      margin-bottom: 6px;
+      margin-bottom: 12px;
     }
 
     .empty-state p {
       color: var(--muted);
+      font-size: 1rem;
     }
 
     /* MSG */
@@ -505,6 +519,43 @@
           </div>
         </div>
 
+        <!-- EDIÇÃO -->
+        <div id="edicao" class="page">
+          <div class="cadastro-wrapper">
+            <div class="cadastro-header">
+              <h2>Editar Camiseta</h2>
+              <p>Atualize as informações do produto</p>
+            </div>
+            <div class="form-container">
+              <div id="mensagem-edicao"></div>
+              <form class="edicao-form" onsubmit="handleEdicaoSubmit(event)">
+                <div class="form-group">
+                  <label for="nome-edicao">Nome da Camiseta *</label>
+                  <input id="nome-edicao" name="nome" required placeholder="Ex: Brasil Home 2024">
+                </div>
+                <div class="form-group">
+                  <label for="descricao-edicao">Descrição</label>
+                  <textarea id="descricao-edicao" name="descricao" placeholder="Descreva a camiseta (material, temporada, etc)"></textarea>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="preco-edicao">Preço (R$) *</label>
+                    <input id="preco-edicao" name="preco" type="number" step="0.01" min="0" required placeholder="99.90">
+                  </div>
+                  <div class="form-group">
+                    <label for="estoque-edicao">Estoque *</label>
+                    <input id="estoque-edicao" name="estoque" type="number" min="0" required placeholder="0">
+                  </div>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                  <button type="button" class="btn" onclick="showPage('home')">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
         <!-- SOBRE -->
         <div id="sobre" class="page">
           <div class="about-section">
@@ -558,6 +609,26 @@
       return false;
     }
 
+    function apiGetCamisetaById(id) {
+      const camisetas = apiGetCamisetas();
+      return camisetas.find(c => c.id == id) || null;
+    }
+
+    function apiUpdateCamiseta(id, camiseta) {
+      const camisetas = apiGetCamisetas();
+      const index = camisetas.findIndex(c => c.id == id);
+      if (index > -1) {
+        camisetas[index] = {
+          ...camisetas[index],
+          ...camiseta,
+          data_atualizacao: new Date().toISOString()
+        };
+        localStorage.setItem('camisetas', JSON.stringify(camisetas));
+        return camisetas[index];
+      }
+      return null;
+    }
+
     function showPage(pageName, ev) {
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.getElementById(pageName).classList.add('active');
@@ -591,6 +662,7 @@
                 <div class="stock">Est: ${c.estoque}</div>
               </div>
               <div class="controls">
+                <button class="btn" onclick="editarCamiseta(${c.id})">✏️ Editar</button>
                 <button class="btn btn-danger" onclick="deletarCamiseta(${c.id})">🗑️ Remover</button>
               </div>
             </div>
@@ -624,6 +696,50 @@
       }
     }
 
+    function editarCamiseta(id) {
+      const camiseta = apiGetCamisetaById(id);
+      if (!camiseta) {
+        showMsg('Camiseta não encontrada', 'error');
+        return;
+      }
+      
+      document.getElementById('nome-edicao').value = camiseta.nome;
+      document.getElementById('descricao-edicao').value = camiseta.descricao || '';
+      document.getElementById('preco-edicao').value = camiseta.preco;
+      document.getElementById('estoque-edicao').value = camiseta.estoque;
+      document.getElementById('edicao').dataset.camisetaId = id;
+      document.getElementById('mensagem-edicao').innerHTML = '';
+      
+      showPage('edicao');
+    }
+
+    function handleEdicaoSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('edicao').dataset.camisetaId;
+      const nome = document.getElementById('nome-edicao').value.trim();
+      const descricao = document.getElementById('descricao-edicao').value.trim();
+      const preco = parseFloat(document.getElementById('preco-edicao').value);
+      const estoque = parseInt(document.getElementById('estoque-edicao').value, 10);
+
+      if (!nome) { showMsgEdicao('Nome é obrigatório', 'error'); return; }
+      if (isNaN(preco) || preco < 0) { showMsgEdicao('Preço inválido', 'error'); return; }
+      if (isNaN(estoque) || estoque < 0) { showMsgEdicao('Estoque inválido', 'error'); return; }
+
+      const body = { nome, descricao, preco, estoque };
+      
+      try {
+        const result = apiUpdateCamiseta(id, body);
+        if (result) {
+          showMsgEdicao('Camiseta atualizada com sucesso', 'success');
+          setTimeout(() => showPage('home'), 1000);
+        } else {
+          showMsgEdicao('Erro ao atualizar', 'error');
+        }
+      } catch (err) {
+        showMsgEdicao('Erro ao atualizar', 'error');
+      }
+    }
+
     function deletarCamiseta(id) {
       if (confirm('Remover esta camiseta?')) {
         try {
@@ -647,6 +763,12 @@
 
     function showMsg(text, type) {
       const div = document.getElementById('mensagem');
+      div.innerHTML = `<div class="msg ${type}">${text}</div>`;
+      setTimeout(() => div.innerHTML = '', 3000);
+    }
+
+    function showMsgEdicao(text, type) {
+      const div = document.getElementById('mensagem-edicao');
       div.innerHTML = `<div class="msg ${type}">${text}</div>`;
       setTimeout(() => div.innerHTML = '', 3000);
     }
